@@ -84,7 +84,9 @@ class Adan(BaseOptimizer):
                 state['exp_avg'] = torch.zeros_like(p)
                 state['exp_avg_sq'] = torch.zeros_like(p)
                 state['exp_avg_diff'] = torch.zeros_like(p)
-                state['previous_grad'] = grad.clone().mul_(-clip_global_grad_norm)
+                state['previous_grad'] = grad.clone().mul_(
+                    clip_global_grad_norm if self.maximize else -clip_global_grad_norm
+                )
 
                 if group.get('adanorm'):
                     state['exp_grad_adanorm'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)

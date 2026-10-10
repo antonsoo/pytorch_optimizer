@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 import torch
 
-from tests.fixtures import build_model
+from tests.fixtures import build_model, make_parameter
 from tests.optimizer_cases import FOREACH_OPTIMIZERS, GRADIENT_OPTIONS, MAXIMIZE_OPTIMIZERS, SKIP_CAPABILITY_PROBE
 from tests.utils import Trainer, build_optimizer, build_optimizer_parameters, ids
 
@@ -88,6 +88,20 @@ STABLE_ADAMW_SUPPORTED_OPTIMIZERS: list[tuple[str, dict[str, Any], int]] = [
 
 
 class TestMaximize:
+    @pytest.mark.parametrize('foreach', [False, True])
+    def test_adan_gradient_history(self, foreach):
+        params = [make_parameter((2,), dtype=torch.float64) for _ in range(2)]
+        ascent = build_optimizer('adan', [params[0]], lr=0.1, maximize=True, foreach=foreach)
+        descent = build_optimizer('adan', [params[1]], lr=0.1, foreach=foreach)
+
+        for gradient in ([0.5, 0.2], [1.5, -0.8]):
+            params[0].grad = torch.tensor(gradient, dtype=torch.float64)
+            params[1].grad = -params[0].grad
+            ascent.step()
+            descent.step()
+
+        torch.testing.assert_close(params[0], params[1])
+
     @pytest.mark.parametrize(
         ('optimizer_name', 'foreach'),
         [
