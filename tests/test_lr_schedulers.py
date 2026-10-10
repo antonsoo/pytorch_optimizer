@@ -66,6 +66,32 @@ def test_cosine_annealing_warmup_restarts(cycle_mult, gamma, expected_lrs, sched
         assert round(lr_scheduler.get_lr()[0], 6) == pytest.approx(expected_lr, abs=1e-7)
 
 
+@pytest.mark.parametrize('last_epoch', [3, 27, 66])
+def test_cosine_annealing_warmup_restarts_resume(last_epoch):
+    options = {
+        'first_cycle_steps': 10,
+        'cycle_mult': 2.0,
+        'max_lr': 0.1,
+        'min_lr': 0.001,
+        'warmup_steps': 3,
+        'gamma': 0.8,
+    }
+    optimizer = build_optimizer('sgd', [make_parameter()], lr=0.1)
+    scheduler = CosineAnnealingWarmupRestarts(optimizer, **options)
+    for _ in range(last_epoch + 1):
+        scheduler.step()
+
+    restored_optimizer = build_optimizer('sgd', [make_parameter()], lr=0.1)
+    restored_optimizer.load_state_dict(optimizer.state_dict())
+    restored = CosineAnnealingWarmupRestarts(restored_optimizer, last_epoch=last_epoch, **options)
+
+    for _ in range(5):
+        assert restored_optimizer.param_groups[0]['lr'] == pytest.approx(optimizer.param_groups[0]['lr'])
+        assert restored.get_last_lr() == pytest.approx(scheduler.get_last_lr())
+        scheduler.step()
+        restored.step()
+
+
 def test_get_chebyshev_scheduler():
     recipes = {
         2: np.asarray([0, 1]),
